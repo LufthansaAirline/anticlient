@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin — AntiClient</title>
+  <link rel="icon" href="images/anticlient.png">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/auth.css">
+</head>
+<body>
+  <header class="nav">
+    <a class="brand" href="index.html"><img class="brand-icon" src="images/anticlient-transparent.png" alt=""> ANTICLIENT</a>
+    <a class="nav-item" href="dashboard.html">Dashboard</a>
+  </header>
+
+  <main class="account-main wide">
+    <div id="loading" class="card"><p class="sub" style="margin:0">Checking admin access…</p></div>
+
+    <div id="denied" class="card" style="display:none">
+      <h1>Admins only</h1>
+      <p class="sub">
+        This page is gated to whichever account has the admin's hardware ID bound to it.
+        If that's you, bind your HWID on the <a href="dashboard.html">dashboard</a> first.
+      </p>
+    </div>
+
+    <div id="admin" style="display:none">
+      <!-- Mint key -->
+      <div class="card" style="margin-bottom:20px">
+        <h1>Mint an offline key</h1>
+        <p class="sub">Signs a real ANTI-... key with the server's signing key — for people without an account.</p>
+
+        <div class="dash-grid" style="grid-template-columns: 1fr 1fr 1fr">
+          <div class="field">
+            <label for="mintHwid">Buyer HWID</label>
+            <input id="mintHwid" type="text" placeholder="XXXX-XXXX-XXXX-XXXX" autocomplete="off">
+          </div>
+          <div class="field">
+            <label for="mintTier">Tier</label>
+            <select id="mintTier" style="width:100%;padding:12px 14px;background:rgba(255,255,255,.04);border:1px solid rgba(255,106,46,.28);color:#fff;font:inherit;font-size:15px">
+              <option value="PRO">Pro</option>
+              <option value="FREE">Free</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="mintDays">Days (0 = lifetime)</label>
+            <input id="mintDays" type="number" min="0" value="15">
+          </div>
+        </div>
+
+        <button class="btn-primary" id="mintBtn" type="button" style="margin-top:4px">Mint key</button>
+        <div class="msg" id="mintMsg"></div>
+        <div class="row" id="mintOutRow" style="display:none;margin-top:10px">
+          <input id="mintOut" type="text" readonly class="value" style="flex:1">
+          <button class="btn-ghost" id="mintCopy" type="button">Copy</button>
+        </div>
+      </div>
+
+      <!-- Accounts -->
+      <div class="card">
+        <h1>Accounts</h1>
+        <p class="sub">Grant Pro, blacklist, whitelist, or force-reset anyone's bound HWID.</p>
+
+        <div class="field search-row">
+          <input id="search" type="text" placeholder="Filter by email or HWID…" autocomplete="off">
+        </div>
+
+        <div class="table-wrap">
+          <table class="admin-table">
+            <thead>
+              <tr><th>Email</th><th>Tier</th><th>HWID</th><th>Status</th><th>Actions</th></tr>
+            </thead>
+            <tbody id="rows"></tbody>
+          </table>
+        </div>
+        <div class="msg" id="tableMsg"></div>
+      </div>
+    </div>
+  </main>
+
+  <script type="module">
+    import {
+      requireSession, isAdmin, adminListUsers, adminSetTier, adminSetBlacklist,
+      adminSetWhitelist, adminResetHwid, adminMintKey
+    } from "./js/auth.js";
+
+    const loading = document.getElementById("loading");
+    const denied = document.getElementById("denied");
+    const adminEl = document.getElementById("admin");
+    const rows = document.getElementById("rows");
+    const tableMsg = document.getElementById("tableMsg");
+    const search = document.getElementById("search");
+
+    let allUsers = [];
+
+    function msg(el, text, ok = false) {
+      el.textContent = text;
+      el.className = "msg " + (ok ? "ok" : "err");
+    }
+
+    async function init() {
+      const session = await requireSession();
+      if (!session) return;
+
+      let admin = false;
+      try { admin = await isAdmin(); } catch { admin = false; }
+
+      loading.style.display = "none";
+      if (!admin) { denied.style.display = "block"; return; }
+      adminEl.style.display = "block";
+
+      await refresh();
+
+      search.addEventListener("input", render);
+
+      document.getElementById("mintBtn").addEventListener("click", mint);
+      document.getElementById("mintCopy").addEventListener("click", async () => {
+        const v = document.getElementById("mintOut").value;
+        if (!v) return;
+        try { await navigator.clipboard.writeText(v); } catch { /* ignore */ }
+      });
+    }
+
+    async function refresh() {
+      try {
+        allUsers = await adminListUsers();
+        render();
+      } catch (e) {
+        msg(tableMsg, e?.message || "Could not load accounts.");
+      }
+    }
+
+    function render() {
+      const q = search.value.trim().toLowerCase();
+      const filtered = !q ? allUsers : allUsers.filter(
+        (u) => u.email.toLowerCase().includes(q) || (u.hwid || "").toLowerCase().includes(q)
+      );
+
+      rows.innerHTML = "";
+      for (const u of filtered) {
+        const tr = document.createElement("tr");
+
+        const tierBadge = `<span class="badge">${u.tier}</span>`;
+        const status = [
+          u.blacklisted ? '<span class="badge" style="border-color:#e27878;color:#ff9e8c">blacklisted</span>' : "",
+          u.whitelisted ? '<span class="badge">whitelisted</span>' : ""
+        ].filter(Boolean).join(" ") || '<span class="sub" style="margin:0">—</span>';
+
+        tr.innerHTML = `
+          <td>${escapeHtml(u.email)}</td>
+          <td>${tierBadge}</td>
+          <td><code>${u.hwid ? escapeHtml(u.hwid) : "—"}</code></td>
+          <td>${status}</td>
+          <td class="admin-actions">
+            <button class="mini-btn ${u.tier === "pro" ? "on" : ""}" data-act="tier-pro">Pro</button>
+            <button class="mini-btn ${u.tier === "free" ? "on" : ""}" data-act="tier-free">Free</button>
+            <button class="mini-btn ${u.blacklisted ? "on" : ""}" data-act="blacklist">Blacklist</button>
+            <button class="mini-btn ${u.whitelisted ? "on" : ""}" data-act="whitelist">Whitelist</button>
+            <button class="mini-btn" data-act="reset-hwid" ${u.hwid ? "" : "disabled"}>Reset HWID</button>
+          </td>
+        `;
+
+        tr.querySelectorAll("button[data-act]").forEach((btn) => {
+          btn.addEventListener("click", () => act(u, btn.dataset.act));
+        });
+
+        rows.appendChild(tr);
+      }
+    }
+
+    async function act(u, action) {
+      try {
+        if (action === "tier-pro") await adminSetTier(u.email, "pro");
+        else if (action === "tier-free") await adminSetTier(u.email, "free");
+        else if (action === "blacklist") await adminSetBlacklist(u.email, !u.blacklisted);
+        else if (action === "whitelist") await adminSetWhitelist(u.email, !u.whitelisted);
+        else if (action === "reset-hwid") {
+          if (!confirm(`Force-reset the HWID bound to ${u.email}? This skips the normal cooldown.`)) return;
+          await adminResetHwid(u.email);
+        }
+        msg(tableMsg, "Updated.", true);
+        await refresh();
+      } catch (e) {
+        msg(tableMsg, e?.message || "That didn't work.");
+      }
+    }
+
+    async function mint() {
+      const btn = document.getElementById("mintBtn");
+      const hwid = document.getElementById("mintHwid").value.trim();
+      const tier = document.getElementById("mintTier").value;
+      const days = Number(document.getElementById("mintDays").value) || 0;
+      const mintMsg = document.getElementById("mintMsg");
+      const outRow = document.getElementById("mintOutRow");
+
+      btn.disabled = true;
+      outRow.style.display = "none";
+      try {
+        const key = await adminMintKey(hwid, tier, days);
+        document.getElementById("mintOut").value = key;
+        outRow.style.display = "flex";
+        msg(mintMsg, (days > 0 ? `${tier} key, expires in ${days} days.` : `${tier} lifetime key.`), true);
+      } catch (e) {
+        msg(mintMsg, e?.message || "Could not mint a key.");
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    function escapeHtml(s) {
+      return String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+    }
+
+    init();
+  </script>
+</body>
+</html>

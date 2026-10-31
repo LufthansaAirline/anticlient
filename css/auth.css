@@ -1,0 +1,235 @@
+/* Account + dashboard styles, matching the ember theme in style.css */
+
+.account-main {
+  position: relative;
+  z-index: 1;
+  max-width: 460px;
+  margin: 0 auto;
+  padding: 56px 24px 80px;
+}
+
+.account-main.wide { max-width: 760px; }
+
+.card {
+  border: 1px solid rgba(255, 106, 46, .22);
+  background: rgba(24, 10, 5, .72);
+  padding: 30px 28px;
+  box-shadow: 0 18px 50px rgba(0, 0, 0, .45);
+}
+
+.card h1 {
+  font-size: 30px;
+  margin: 0 0 6px;
+  letter-spacing: -.03em;
+}
+
+.card .sub {
+  color: var(--muted);
+  font-size: 14px;
+  margin: 0 0 22px;
+}
+
+/* tabs */
+.tabs {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 22px;
+  border: 1px solid rgba(255, 106, 46, .22);
+  padding: 4px;
+}
+.tab {
+  flex: 1;
+  padding: 10px;
+  text-align: center;
+  color: var(--muted);
+  cursor: pointer;
+  font: inherit;
+  font-size: 14px;
+  background: none;
+  border: none;
+  transition: .2s ease;
+}
+.tab.active {
+  color: #fff;
+  background: rgba(255, 90, 31, .14);
+  box-shadow: inset 0 -2px 0 var(--ember);
+}
+
+.field { margin-bottom: 16px; }
+.field label {
+  display: block;
+  font-size: 12px;
+  color: var(--muted);
+  margin-bottom: 6px;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+.field input {
+  width: 100%;
+  padding: 12px 14px;
+  background: rgba(255, 255, 255, .04);
+  border: 1px solid rgba(255, 106, 46, .28);
+  color: #fff;
+  font: inherit;
+  font-size: 15px;
+  transition: border-color .2s ease, box-shadow .2s ease;
+}
+.field input:focus {
+  outline: none;
+  border-color: var(--ember-glow);
+  box-shadow: 0 0 0 3px rgba(255, 90, 31, .14);
+}
+.field input[readonly] { color: var(--ember-glow); font-family: "Courier New", monospace; }
+
+.btn-primary {
+  width: 100%;
+  min-height: 50px;
+  background: var(--ember);
+  border: 1px solid var(--ember);
+  color: #fff;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: .2s ease;
+  box-shadow: 0 7px 25px rgba(255, 90, 31, .22);
+}
+.btn-primary:hover:not(:disabled) { background: var(--ember-glow); transform: translateY(-2px); }
+.btn-primary:disabled { opacity: .5; cursor: not-allowed; }
+
+.btn-ghost {
+  background: rgba(255, 255, 255, .04);
+  border: 1px solid rgba(255, 255, 255, .22);
+  color: #fff;
+  padding: 10px 16px;
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+  transition: .2s ease;
+}
+.btn-ghost:hover:not(:disabled) { background: rgba(255, 255, 255, .09); }
+.btn-ghost:disabled { opacity: .5; cursor: not-allowed; }
+
+.btn-danger {
+  border-color: rgba(255, 90, 31, .5);
+  color: #ffb59c;
+}
+.btn-danger:hover:not(:disabled) { background: rgba(255, 90, 31, .12); }
+
+.msg {
+  font-size: 13px;
+  margin-top: 14px;
+  min-height: 18px;
+  line-height: 1.4;
+}
+.msg.ok { color: #7fe0a0; }
+.msg.err { color: #ff9e8c; }
+
+.switch-note {
+  text-align: center;
+  color: var(--muted);
+  font-size: 13px;
+  margin-top: 18px;
+}
+.switch-note a { color: var(--ember-glow); }
+
+/* dashboard */
+.dash-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 22px;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.dash-head h1 { margin: 0; font-size: 28px; }
+.dash-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+.panel {
+  border: 1px solid rgba(255, 106, 46, .2);
+  background: rgba(36, 14, 6, .4);
+  padding: 20px;
+}
+.panel h3 {
+  margin: 0 0 4px;
+  font-size: 15px;
+  color: var(--ember-glow);
+  letter-spacing: .03em;
+}
+.panel .hint { color: var(--muted); font-size: 12px; margin: 0 0 14px; }
+.panel .value {
+  font-family: "Courier New", monospace;
+  font-size: 18px;
+  color: #fff;
+  word-break: break-all;
+}
+.badge {
+  display: inline-block;
+  padding: 3px 10px;
+  border: 1px solid rgba(255, 106, 46, .5);
+  background: rgba(255, 90, 31, .1);
+  color: var(--ember-glow);
+  font-size: 12px;
+  border-radius: 14px;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+}
+.row { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+.row input { flex: 1; min-width: 160px; }
+
+.banner {
+  border: 1px solid rgba(255, 106, 46, .4);
+  background: rgba(255, 90, 31, .08);
+  color: #ffd2bd;
+  padding: 12px 16px;
+  font-size: 13px;
+  margin-bottom: 22px;
+  line-height: 1.5;
+}
+
+@media (max-width: 620px) {
+  .dash-grid { grid-template-columns: 1fr; }
+}
+
+/* admin */
+.admin-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.admin-table th {
+  text-align: left;
+  color: var(--muted);
+  font-weight: 600;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  padding: 8px 10px;
+  border-bottom: 1px solid rgba(255, 106, 46, .25);
+}
+.admin-table td {
+  padding: 10px;
+  border-bottom: 1px solid rgba(255, 106, 46, .12);
+  vertical-align: middle;
+}
+.admin-table tr:last-child td { border-bottom: none; }
+.admin-table code { font-size: 12px; }
+.mini-btn {
+  background: rgba(255, 255, 255, .04);
+  border: 1px solid rgba(255, 255, 255, .22);
+  color: #fff;
+  padding: 5px 10px;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  transition: .2s ease;
+  white-space: nowrap;
+}
+.mini-btn:hover:not(:disabled) { background: rgba(255, 255, 255, .09); }
+.mini-btn.on { border-color: var(--ember-glow); color: var(--ember-glow); background: rgba(255, 90, 31, .12); }
+.admin-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+.search-row { margin-bottom: 14px; }
+.table-wrap { overflow-x: auto; }

@@ -1,0 +1,9 @@
+# Real user accounts and the session-signing secret — never commit these.
+server/data.json
+server/secret.key
+
+# Never commit a signing key if one ever ends up in this folder.
+*.pem
+
+node_modules/
+.DS_Store

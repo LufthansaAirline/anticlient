@@ -1,0 +1,32 @@
+# Render blueprint — https://render.com/docs/blueprint-spec
+#
+# Deploys this whole site (static pages + the account/admin API in
+# server/server.mjs) as one web service. In the Render dashboard:
+# New -> Blueprint -> pick this repo -> Render reads this file automatically.
+#
+# The persistent disk is what keeps accounts/HWIDs/tokens across restarts
+# and redeploys — without it, data.json lives on ephemeral storage and
+# resets every time the service redeploys. Disks need a paid instance type
+# (not the free plan); bump `plan` below if you start on free and add one
+# later.
+#
+# ANTI_SIGNING_KEY_PEM is deliberately left unset here. Add it yourself in
+# the Render dashboard (Environment tab) only if you want this deployment to
+# mint offline keys remotely — see server/server.mjs's header comment for
+# what that trade-off means.
+
+services:
+  - type: web
+    name: anticlient-site
+    runtime: node
+    plan: starter
+    buildCommand: ""
+    startCommand: node server/server.mjs
+    autoDeploy: true
+    envVars:
+      - key: DATA_DIR
+        value: /var/data
+    disk:
+      name: anticlient-data
+      mountPath: /var/data
+      sizeGB: 1

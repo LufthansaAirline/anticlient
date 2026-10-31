@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard — AntiClient</title>
+  <link rel="icon" href="images/anticlient.png">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/auth.css">
+</head>
+<body>
+  <header class="nav">
+    <a class="brand" href="index.html"><img class="brand-icon" src="images/anticlient-transparent.png" alt=""> ANTICLIENT</a>
+    <nav class="nav-links">
+      <a class="nav-item" href="admin.html" id="adminLink" style="display:none">Admin</a>
+      <a class="nav-item" href="index.html">Home</a>
+    </nav>
+  </header>
+
+  <main class="account-main wide">
+    <div id="loading" class="card"><p class="sub" style="margin:0">Loading your dashboard…</p></div>
+
+    <div id="dash" class="card" style="display:none">
+      <div class="dash-head">
+        <h1>Dashboard</h1>
+        <div>
+          <span class="badge" id="tier">free</span>
+          <button class="btn-ghost" id="logout" type="button" style="margin-left:8px">Log out</button>
+        </div>
+      </div>
+
+      <p class="sub" id="who" style="margin-top:-10px"></p>
+
+      <div class="dash-grid">
+        <!-- License key -->
+        <div class="panel">
+          <h3>License key</h3>
+          <p class="hint">Paste the key you were issued (starts with ANTI-).</p>
+          <div class="value" id="keyValue">—</div>
+          <div class="row">
+            <input id="keyInput" type="text" placeholder="ANTI-…" autocomplete="off">
+            <button class="btn-ghost" id="saveKey" type="button">Save</button>
+          </div>
+          <div class="msg" id="keyMsg"></div>
+        </div>
+
+        <!-- HWID -->
+        <div class="panel">
+          <h3>Hardware ID</h3>
+          <p class="hint">The PC your license is bound to. Resetting lets you move to a new PC.</p>
+          <div class="value" id="hwidValue">—</div>
+
+          <!-- when no HWID is bound yet -->
+          <div class="row" id="bindRow" style="display:none">
+            <input id="hwidInput" type="text" placeholder="XXXX-XXXX-XXXX-XXXX" autocomplete="off">
+            <button class="btn-ghost" id="bindHwid" type="button">Bind</button>
+          </div>
+
+          <!-- when an HWID is bound -->
+          <div class="row" id="resetRow" style="display:none">
+            <button class="btn-ghost btn-danger" id="resetHwid" type="button">Reset HWID</button>
+          </div>
+          <div class="msg" id="hwidMsg"></div>
+        </div>
+
+        <!-- Client token -->
+        <div class="panel" style="grid-column: 1 / -1">
+          <h3>Client token</h3>
+          <p class="hint">
+            Paste this into AntiClient's Account tab (same box as a license key) to sign the
+            mod in online. It auto-binds to whichever PC uses it first — reset your HWID above
+            to move it. Keep it private; anyone with it can sign in as you.
+          </p>
+          <div class="value" id="tokenValue">—</div>
+          <div class="row">
+            <button class="btn-ghost" id="copyToken" type="button">Copy</button>
+            <button class="btn-ghost btn-danger" id="regenToken" type="button">Regenerate</button>
+          </div>
+          <div class="msg" id="tokenMsg"></div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script type="module">
+    import {
+      requireSession, getProfile, setHwid, resetHwid, setLicenseKey, signOut,
+      getClientToken, regenerateClientToken, configured, isAdmin
+    } from "./js/auth.js";
+    import { HWID_RESET_COOLDOWN_DAYS } from "./js/config.js";
+
+    const loading = document.getElementById("loading");
+    const dash = document.getElementById("dash");
+
+    if (!configured) {
+      loading.innerHTML = '<p class="sub" style="margin:0">Could not reach the account server. Make sure it is running, or that this site is pointed at your deployed backend.</p>';
+    } else {
+      init();
+    }
+
+    function msg(el, text, ok = false) {
+      el.textContent = text;
+      el.className = "msg " + (ok ? "ok" : "err");
+    }
+
+    function maskHwid(h) { return h; } // HWID isn't secret; show it in full
+
+    async function init() {
+      const session = await requireSession();
+      if (!session) return;
+
+      let profile;
+      try {
+        profile = await getProfile();
+      } catch (e) {
+        loading.innerHTML = '<p class="sub" style="margin:0">Could not load your profile. Make sure the database setup SQL has been run.</p>';
+        return;
+      }
+
+      loading.style.display = "none";
+      dash.style.display = "block";
+
+      document.getElementById("who").textContent = profile.email || session.user.email;
+      document.getElementById("tier").textContent = profile.tier || "free";
+
+      try {
+        if (await isAdmin()) document.getElementById("adminLink").style.display = "";
+      } catch { /* admin tools unavailable on this backend */ }
+
+      renderKey(profile.license_key);
+      renderHwid(profile.hwid);
+
+      // client token (separate secret the mod presents to /api/client/verify)
+      const tokenMsg = document.getElementById("tokenMsg");
+      let currentToken = "";
+      try {
+        currentToken = await getClientToken();
+        renderToken(currentToken);
+      } catch (e) {
+        msg(tokenMsg, e?.message || "Could not load your client token.");
+      }
+
+      document.getElementById("copyToken").addEventListener("click", async () => {
+        if (!currentToken) return;
+        try {
+          await navigator.clipboard.writeText(currentToken);
+          msg(tokenMsg, "Copied.", true);
+        } catch (e) { msg(tokenMsg, "Could not copy — select it manually."); }
+      });
+
+      document.getElementById("regenToken").addEventListener("click", async () => {
+        if (!confirm("Regenerate your client token? Anything already signed in with the old one stops working until you paste the new one in.")) return;
+        try {
+          currentToken = await regenerateClientToken();
+          renderToken(currentToken);
+          msg(tokenMsg, "Regenerated. Paste the new token into AntiClient.", true);
+        } catch (e) { msg(tokenMsg, e?.message || "Could not regenerate."); }
+      });
+
+      document.getElementById("logout").addEventListener("click", async () => {
+        await signOut();
+        window.location.href = "login.html";
+      });
+
+      // save license key
+      const keyInput = document.getElementById("keyInput");
+      const keyMsg = document.getElementById("keyMsg");
+      document.getElementById("saveKey").addEventListener("click", async () => {
+        const v = keyInput.value.trim();
+        if (!v.toUpperCase().startsWith("ANTI-")) { msg(keyMsg, "That doesn't look like a key (starts with ANTI-)."); return; }
+        try {
+          await setLicenseKey(v);
+          renderKey(v);
+          keyInput.value = "";
+          msg(keyMsg, "Saved.", true);
+        } catch (e) { msg(keyMsg, e?.message || "Could not save."); }
+      });
+
+      // bind hwid
+      const hwidInput = document.getElementById("hwidInput");
+      const hwidMsg = document.getElementById("hwidMsg");
+      document.getElementById("bindHwid").addEventListener("click", async () => {
+        const v = hwidInput.value.trim().toUpperCase();
+        if (!/^[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}$/.test(v)) {
+          msg(hwidMsg, "HWID must look like XXXX-XXXX-XXXX-XXXX."); return;
+        }
+        try {
+          await setHwid(v);
+          renderHwid(v);
+          msg(hwidMsg, "HWID bound.", true);
+        } catch (e) { msg(hwidMsg, e?.message || "Could not bind."); }
+      });
+
+      // reset hwid
+      document.getElementById("resetHwid").addEventListener("click", async () => {
+        if (!confirm("Reset your HWID? You can only do this once every " + HWID_RESET_COOLDOWN_DAYS + " days.")) return;
+        try {
+          await resetHwid();
+          renderHwid(null);
+          msg(hwidMsg, "HWID reset. Bind your new PC when you're ready.", true);
+        } catch (e) { msg(hwidMsg, e?.message || "Could not reset."); }
+      });
+    }
+
+    function renderKey(key) {
+      document.getElementById("keyValue").textContent = key ? key : "— not set —";
+    }
+
+    function renderToken(token) {
+      document.getElementById("tokenValue").textContent = token || "—";
+    }
+
+    function renderHwid(hwid) {
+      const bindRow = document.getElementById("bindRow");
+      const resetRow = document.getElementById("resetRow");
+      const val = document.getElementById("hwidValue");
+      if (hwid) {
+        val.textContent = maskHwid(hwid);
+        bindRow.style.display = "none";
+        resetRow.style.display = "flex";
+      } else {
+        val.textContent = "— not bound —";
+        bindRow.style.display = "flex";
+        resetRow.style.display = "none";
+      }
+    }
+  </script>
+</body>
+</html>

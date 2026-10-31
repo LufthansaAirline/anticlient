@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sign in — AntiClient</title>
+  <link rel="icon" href="images/anticlient.png">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/auth.css">
+</head>
+<body>
+  <header class="nav">
+    <a class="brand" href="index.html"><img class="brand-icon" src="images/anticlient-transparent.png" alt=""> ANTICLIENT</a>
+    <a class="nav-item" href="index.html">Home</a>
+  </header>
+
+  <main class="account-main">
+    <div class="card">
+      <h1 id="title">Welcome back</h1>
+      <p class="sub" id="subtitle">Sign in to manage your AntiClient account.</p>
+
+      <div class="tabs">
+        <button class="tab active" id="tabLogin" type="button">Sign in</button>
+        <button class="tab" id="tabRegister" type="button">Create account</button>
+      </div>
+
+      <form id="form" autocomplete="on">
+        <div class="field">
+          <label for="email">Email</label>
+          <input id="email" type="email" required autocomplete="email" placeholder="you@example.com">
+        </div>
+        <div class="field">
+          <label for="password">Password</label>
+          <input id="password" type="password" required autocomplete="current-password" placeholder="••••••••" minlength="6">
+        </div>
+        <button class="btn-primary" id="submit" type="submit">Sign in</button>
+        <div class="msg" id="msg"></div>
+      </form>
+
+      <p class="switch-note" id="switchNote"></p>
+    </div>
+  </main>
+
+  <script type="module">
+    import { signIn, signUp, getSession, configured } from "./js/auth.js";
+
+    const title = document.getElementById("title");
+    const subtitle = document.getElementById("subtitle");
+    const tabLogin = document.getElementById("tabLogin");
+    const tabRegister = document.getElementById("tabRegister");
+    const form = document.getElementById("form");
+    const email = document.getElementById("email");
+    const password = document.getElementById("password");
+    const submit = document.getElementById("submit");
+    const msg = document.getElementById("msg");
+
+    let mode = "login";
+
+    function say(text, ok = false) {
+      msg.textContent = text;
+      msg.className = "msg " + (ok ? "ok" : "err");
+    }
+
+    if (!configured) {
+      say("This site isn't connected to a backend yet. Add your Supabase keys in js/supabase-config.js.");
+      submit.disabled = true;
+    } else {
+      // Already signed in? Go to the dashboard.
+      getSession().then(s => { if (s) window.location.replace("dashboard.html"); });
+    }
+
+    function setMode(next) {
+      mode = next;
+      const login = mode === "login";
+      tabLogin.classList.toggle("active", login);
+      tabRegister.classList.toggle("active", !login);
+      title.textContent = login ? "Welcome back" : "Create your account";
+      subtitle.textContent = login
+        ? "Sign in to manage your AntiClient account."
+        : "Make a free account to manage your license and HWID.";
+      submit.textContent = login ? "Sign in" : "Create account";
+      password.setAttribute("autocomplete", login ? "current-password" : "new-password");
+      say("");
+    }
+
+    tabLogin.addEventListener("click", () => setMode("login"));
+    tabRegister.addEventListener("click", () => setMode("register"));
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      if (!configured) return;
+      submit.disabled = true;
+      say("");
+      try {
+        if (mode === "login") {
+          await signIn(email.value.trim(), password.value);
+          window.location.href = "dashboard.html";
+        } else {
+          const { needsConfirmation } = await signUp(email.value.trim(), password.value);
+          if (needsConfirmation) {
+            say("Account created. Check your email to confirm, then sign in.", true);
+            setMode("login");
+          } else {
+            window.location.href = "dashboard.html";
+          }
+        }
+      } catch (err) {
+        say(err?.message || "Something went wrong.");
+        submit.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>
