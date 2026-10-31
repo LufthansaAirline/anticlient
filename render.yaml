@@ -10,10 +10,11 @@
 # (not the free plan); bump `plan` below if you start on free and add one
 # later.
 #
-# ANTI_SIGNING_KEY_PEM is deliberately left unset here. Add it yourself in
-# the Render dashboard (Environment tab) only if you want this deployment to
-# mint offline keys remotely — see server/server.mjs's header comment for
-# what that trade-off means.
+# ANTI_SIGNING_KEY_PEM: marked sync:false below, so Render prompts for its
+# value during setup instead of storing it in this file / in git. Paste in
+# the exact contents of the signing_key.pem that matches the public key
+# already baked into the distributed mod jar — otherwise keys minted here
+# won't verify for anyone. Render encrypts it; it's never written back here.
 
 services:
   - type: web
@@ -26,6 +27,8 @@ services:
     envVars:
       - key: DATA_DIR
         value: /var/data
+      - key: ANTI_SIGNING_KEY_PEM
+        sync: false
     disk:
       name: anticlient-data
       mountPath: /var/data
