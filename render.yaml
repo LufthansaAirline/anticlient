@@ -4,11 +4,18 @@
 # server/server.mjs) as one web service. In the Render dashboard:
 # New -> Blueprint -> pick this repo -> Render reads this file automatically.
 #
-# The persistent disk is what keeps accounts/HWIDs/tokens across restarts
-# and redeploys — without it, data.json lives on ephemeral storage and
-# resets every time the service redeploys. Disks need a paid instance type
-# (not the free plan); bump `plan` below if you start on free and add one
-# later.
+# Running on the FREE plan right now: no persistent disk, so data.json
+# (every account, HWID, key, blacklist/whitelist entry) resets to empty
+# whenever the service redeploys or restarts — which free services also do
+# automatically after periods of inactivity. Fine for trying this out; risky
+# once real customers have accounts. To add a persistent disk later: set
+# `plan: starter` (or similar paid tier), add
+#   disk:
+#     name: anticlient-data
+#     mountPath: /var/data
+#     sizeGB: 1
+# and an env var DATA_DIR=/var/data — then push; Render will ask for payment
+# details on the next deploy since disks need a paid instance.
 #
 # ANTI_SIGNING_KEY_PEM: marked sync:false below, so Render prompts for its
 # value during setup instead of storing it in this file / in git. Paste in
@@ -20,16 +27,10 @@ services:
   - type: web
     name: anticlient-site
     runtime: node
-    plan: starter
+    plan: free
     buildCommand: ""
     startCommand: node server/server.mjs
     autoDeploy: true
     envVars:
-      - key: DATA_DIR
-        value: /var/data
       - key: ANTI_SIGNING_KEY_PEM
         sync: false
-    disk:
-      name: anticlient-data
-      mountPath: /var/data
-      sizeGB: 1
