@@ -50,10 +50,18 @@
           <p class="hint">The PC your license is bound to. Resetting lets you move to a new PC.</p>
           <div class="value" id="hwidValue">—</div>
 
-          <!-- when no HWID is bound yet -->
-          <div class="row" id="bindRow" style="display:none">
-            <input id="hwidInput" type="text" placeholder="XXXX-XXXX-XXXX-XXXX" autocomplete="off">
-            <button class="btn-ghost" id="bindHwid" type="button">Bind</button>
+          <!-- when no HWID is bound yet: this binds itself, nothing to type here -->
+          <div id="bindRow" style="display:none">
+            <p class="sub" style="margin:10px 0 0">
+              Not bound yet. A website can't read your PC's hardware ID — nothing to do here.
+              Paste your <b>Client token</b> (below) into AntiClient's Account tab and it binds
+              itself automatically the moment you sign in.
+            </p>
+            <button class="mini-btn" id="manualBindToggle" type="button" style="margin-top:10px">Bind a key's HWID manually instead</button>
+            <div class="row" id="manualBindRow" style="display:none;margin-top:8px">
+              <input id="hwidInput" type="text" placeholder="XXXX-XXXX-XXXX-XXXX" autocomplete="off">
+              <button class="btn-ghost" id="bindHwid" type="button">Bind</button>
+            </div>
           </div>
 
           <!-- when an HWID is bound -->
@@ -179,6 +187,10 @@
       // bind hwid
       const hwidInput = document.getElementById("hwidInput");
       const hwidMsg = document.getElementById("hwidMsg");
+      document.getElementById("manualBindToggle").addEventListener("click", () => {
+        const row = document.getElementById("manualBindRow");
+        row.style.display = row.style.display === "none" ? "flex" : "none";
+      });
       document.getElementById("bindHwid").addEventListener("click", async () => {
         const v = hwidInput.value.trim().toUpperCase();
         if (!/^[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}$/.test(v)) {
@@ -213,6 +225,7 @@
     function renderHwid(hwid) {
       const bindRow = document.getElementById("bindRow");
       const resetRow = document.getElementById("resetRow");
+      const manualBindRow = document.getElementById("manualBindRow");
       const val = document.getElementById("hwidValue");
       if (hwid) {
         val.textContent = maskHwid(hwid);
@@ -220,8 +233,9 @@
         resetRow.style.display = "flex";
       } else {
         val.textContent = "— not bound —";
-        bindRow.style.display = "flex";
+        bindRow.style.display = "block";
         resetRow.style.display = "none";
+        manualBindRow.style.display = "none";
       }
     }
   </script>
