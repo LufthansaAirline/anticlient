@@ -19,21 +19,18 @@
 
     <div id="denied" class="card" style="display:none">
       <h1>Admins only</h1>
-      <p class="sub">
-        This page is gated to whichever account has the admin's hardware ID bound to it.
-        If that's you, bind your HWID on the <a href="dashboard.html">dashboard</a> first.
-      </p>
+      <p class="sub">This page is only available to the admin account.</p>
     </div>
 
     <div id="admin" style="display:none">
       <!-- Mint key -->
       <div class="card" style="margin-bottom:20px">
         <h1>Mint an offline key</h1>
-        <p class="sub">Signs a real ANTI-... key with the server's signing key — for people without an account.</p>
+        <p class="sub">Signs a real ANTI-... key with the server's signing key — for people without an account. Not PC-locked.</p>
 
         <div class="dash-grid" style="grid-template-columns: 1fr 1fr 1fr">
           <div class="field">
-            <label for="mintHwid">Buyer HWID</label>
+            <label for="mintHwid">HWID <span style="text-transform:none">(optional, informational only)</span></label>
             <input id="mintHwid" type="text" placeholder="XXXX-XXXX-XXXX-XXXX" autocomplete="off">
           </div>
           <div class="field">
@@ -60,16 +57,16 @@
       <!-- Accounts -->
       <div class="card">
         <h1>Accounts</h1>
-        <p class="sub">Grant Pro, blacklist, whitelist, or force-reset anyone's bound HWID.</p>
+        <p class="sub">Grant Pro, or blacklist/whitelist an account. Not PC-locked, so there's nothing to reset.</p>
 
         <div class="field search-row">
-          <input id="search" type="text" placeholder="Filter by email or HWID…" autocomplete="off">
+          <input id="search" type="text" placeholder="Filter by email…" autocomplete="off">
         </div>
 
         <div class="table-wrap">
           <table class="admin-table">
             <thead>
-              <tr><th>Email</th><th>Tier</th><th>HWID</th><th>Status</th><th>Actions</th></tr>
+              <tr><th>Email</th><th>Tier</th><th>Last seen HWID</th><th>Status</th><th>Actions</th></tr>
             </thead>
             <tbody id="rows"></tbody>
           </table>
@@ -82,7 +79,7 @@
   <script type="module">
     import {
       requireSession, isAdmin, adminListUsers, adminSetTier, adminSetBlacklist,
-      adminSetWhitelist, adminResetHwid, adminMintKey
+      adminSetWhitelist, adminMintKey
     } from "./js/auth.js";
 
     const loading = document.getElementById("loading");
@@ -157,7 +154,6 @@
             <button class="mini-btn ${u.tier === "free" ? "on" : ""}" data-act="tier-free">Free</button>
             <button class="mini-btn ${u.blacklisted ? "on" : ""}" data-act="blacklist">Blacklist</button>
             <button class="mini-btn ${u.whitelisted ? "on" : ""}" data-act="whitelist">Whitelist</button>
-            <button class="mini-btn" data-act="reset-hwid" ${u.hwid ? "" : "disabled"}>Reset HWID</button>
           </td>
         `;
 
@@ -175,10 +171,6 @@
         else if (action === "tier-free") await adminSetTier(u.email, "free");
         else if (action === "blacklist") await adminSetBlacklist(u.email, !u.blacklisted);
         else if (action === "whitelist") await adminSetWhitelist(u.email, !u.whitelisted);
-        else if (action === "reset-hwid") {
-          if (!confirm(`Force-reset the HWID bound to ${u.email}? This skips the normal cooldown.`)) return;
-          await adminResetHwid(u.email);
-        }
         msg(tableMsg, "Updated.", true);
         await refresh();
       } catch (e) {

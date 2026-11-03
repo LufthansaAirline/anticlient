@@ -32,19 +32,8 @@ export async function getSession() {
 export async function getProfile() {
   const { data, error } = await supabase
     .from("profiles")
-    .select("email, tier, license_key, hwid, hwid_reset_at")
+    .select("email, tier, license_key, hwid")
     .single();
-  if (error) throw error;
-  return data;
-}
-
-export async function setHwid(hwid) {
-  const { error } = await supabase.rpc("set_hwid", { new_hwid: hwid });
-  if (error) throw error;
-}
-
-export async function resetHwid() {
-  const { data, error } = await supabase.rpc("reset_hwid");
   if (error) throw error;
   return data;
 }
@@ -76,7 +65,6 @@ export async function adminListUsers() { return adminUnsupported(); }
 export async function adminSetTier() { return adminUnsupported(); }
 export async function adminSetBlacklist() { return adminUnsupported(); }
 export async function adminSetWhitelist() { return adminUnsupported(); }
-export async function adminResetHwid() { return adminUnsupported(); }
 export async function adminMintKey() { return adminUnsupported(); }
 
 export async function requireSession(loginUrl = "login.html") {

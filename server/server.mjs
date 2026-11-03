@@ -3,10 +3,13 @@
 //   - passwords hashed with scrypt + per-user salt
 //   - sessions as HMAC-signed, httpOnly cookies
 //   - users persisted to server/data.json
-//   - HWID reset cooldown enforced on the server
 //   - a per-account "client token" the Minecraft mod itself can verify against
 //     (see /api/client/verify — this is what net.anticlient.client.service
 //     .LicenseAccount's online sign-in path calls)
+//
+// No PC-locking: keys and tokens work from any machine. The HWID the client
+// reports on verify is kept only as an informational "last seen from" field
+// (shown to the admin), never used to grant or deny access.
 //
 // Run:  node server/server.mjs   (from the anticlientwebsite folder)
 //
@@ -45,17 +48,13 @@ const DATA_FILE = join(DATA_DIR, "data.json");
 const SECRET_FILE = join(DATA_DIR, "secret.key");
 const PORT = process.env.PORT || 8891;
 
-const HWID_RESET_COOLDOWN_DAYS = 7;
-const COOLDOWN_MS = HWID_RESET_COOLDOWN_DAYS * 24 * 60 * 60 * 1000;
 const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 const HWID_RE = /^[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}$/;
 
-// Whoever's account has THIS hardware ID bound to it gets admin powers (mint
-// offline keys, blacklist/whitelist accounts, force-reset anyone's HWID).
-// Computed once via the real compiled net.anticlient.client.service.Hwid
-// class so it's guaranteed to match exactly what the game itself reports.
-const ADMIN_HWID = "1580-82AC-AA77-F6ED";
-function isAdmin(u) { return !!u && u.hwid === ADMIN_HWID; }
+// Whoever's account has this email gets admin powers (mint offline keys,
+// blacklist/whitelist accounts).
+const ADMIN_EMAIL = "theshlerper@gmail.com";
+function isAdmin(u) { return !!u && u.email === ADMIN_EMAIL; }
 
 // ---- persistence ------------------------------------------------------------
 if (!existsSync(DATA_DIR)) mkdirSync(DATA_DIR, { recursive: true });
@@ -185,7 +184,7 @@ function currentUser(req) {
   return uid && db.users[uid] ? db.users[uid] : null;
 }
 function publicProfile(u) {
-  return { email: u.email, tier: u.tier, license_key: u.license_key || null, hwid: u.hwid || null, hwid_reset_at: u.hwid_reset_at || null };
+  return { email: u.email, tier: u.tier, license_key: u.license_key || null, hwid: u.hwid || null };
 }
 
 function send(res, status, obj, headers = {}) {
@@ -219,7 +218,7 @@ async function handleApi(req, res, path) {
     const { salt, hash } = hashPassword(password);
     const token = newToken();
     db.users[id] = {
-      id, email: em, salt, hash, tier: "free", license_key: null, hwid: null, hwid_reset_at: null,
+      id, email: em, salt, hash, tier: "free", license_key: null, hwid: null,
       client_token: token, blacklisted: false, whitelisted: false, created_at: Date.now()
     };
     db.byEmail[em] = id;
@@ -246,28 +245,6 @@ async function handleApi(req, res, path) {
   if (req.method === "GET" && path === "/api/me") {
     const u = currentUser(req);
     if (!u) return send(res, 401, { error: "Not signed in." });
-    return send(res, 200, { profile: publicProfile(u) });
-  }
-
-  if (req.method === "POST" && path === "/api/hwid/bind") {
-    const u = currentUser(req);
-    if (!u) return send(res, 401, { error: "Not signed in." });
-    const { hwid } = await readJson(req);
-    const v = String(hwid || "").trim().toUpperCase();
-    if (!HWID_RE.test(v)) return send(res, 400, { error: "HWID must look like XXXX-XXXX-XXXX-XXXX." });
-    if (u.hwid) return send(res, 409, { error: "An HWID is already bound. Reset it first." });
-    u.hwid = v; save();
-    return send(res, 200, { profile: publicProfile(u) });
-  }
-
-  if (req.method === "POST" && path === "/api/hwid/reset") {
-    const u = currentUser(req);
-    if (!u) return send(res, 401, { error: "Not signed in." });
-    if (u.hwid_reset_at && Date.now() - u.hwid_reset_at < COOLDOWN_MS) {
-      const when = new Date(u.hwid_reset_at + COOLDOWN_MS).toISOString().slice(0, 16).replace("T", " ");
-      return send(res, 429, { error: `HWID was reset recently. Try again after ${when} UTC.` });
-    }
-    u.hwid = null; u.hwid_reset_at = Date.now(); save();
     return send(res, 200, { profile: publicProfile(u) });
   }
 
@@ -300,7 +277,8 @@ async function handleApi(req, res, path) {
   }
 
   // Called directly by the Minecraft client (no login cookie — the token IS the
-  // credential). First use from a PC binds that PC's HWID; later calls must match.
+  // credential). Works from any PC; the reported HWID is recorded for the
+  // admin's info only, never checked against anything.
   if (req.method === "POST" && path === "/api/client/verify") {
     const { token, hwid } = await readJson(req);
     const t = String(token || "").trim();
@@ -308,7 +286,6 @@ async function handleApi(req, res, path) {
     const id = db.byToken[t];
     const u = id && db.users[id];
     if (!u) return send(res, 200, { ok: false, tier: "FREE", error: "That token isn't valid." });
-    if (!HWID_RE.test(h)) return send(res, 200, { ok: false, tier: "FREE", error: "Malformed HWID." });
 
     if (!isAdmin(u)) {
       if (u.blacklisted) {
@@ -320,16 +297,12 @@ async function handleApi(req, res, path) {
       }
     }
 
-    if (!u.hwid) { u.hwid = h; save(); }
-    else if (u.hwid !== h) {
-      return send(res, 200, { ok: false, tier: "FREE", error: "This token is bound to a different PC. Reset your HWID on the dashboard to move it here." });
-    }
+    if (HWID_RE.test(h) && u.hwid !== h) { u.hwid = h; save(); }
     return send(res, 200, { ok: true, tier: u.tier.toUpperCase(), error: null });
   }
 
   // ---- admin --------------------------------------------------------------
-  // Gated entirely by ADMIN_HWID: only the account whose bound hwid matches
-  // it can reach any of these, regardless of email/password.
+  // Gated entirely by ADMIN_EMAIL: only that account can reach any of these.
   function requireAdmin() {
     const u = currentUser(req);
     if (!u) { send(res, 401, { error: "Not signed in." }); return null; }
@@ -338,7 +311,7 @@ async function handleApi(req, res, path) {
   }
   function adminProfile(u) {
     return {
-      email: u.email, tier: u.tier, hwid: u.hwid || null, hwid_reset_at: u.hwid_reset_at || null,
+      email: u.email, tier: u.tier, hwid: u.hwid || null,
       blacklisted: !!u.blacklisted, whitelisted: !!u.whitelisted, created_at: u.created_at
     };
   }
@@ -374,7 +347,7 @@ async function handleApi(req, res, path) {
     const { email, on } = await readJson(req);
     const u = findByEmail(email);
     if (!u) return send(res, 404, { error: "No account with that email." });
-    if (u.hwid === ADMIN_HWID) return send(res, 400, { error: "Can't blacklist the admin account." });
+    if (u.email === ADMIN_EMAIL) return send(res, 400, { error: "Can't blacklist the admin account." });
     u.blacklisted = !!on; save();
     return send(res, 200, { profile: adminProfile(u) });
   }
@@ -388,20 +361,11 @@ async function handleApi(req, res, path) {
     return send(res, 200, { profile: adminProfile(u) });
   }
 
-  if (req.method === "POST" && path === "/api/admin/reset-hwid") {
-    if (!requireAdmin()) return;
-    const { email } = await readJson(req);
-    const u = findByEmail(email);
-    if (!u) return send(res, 404, { error: "No account with that email." });
-    u.hwid = null; u.hwid_reset_at = Date.now(); save();
-    return send(res, 200, { profile: adminProfile(u) });
-  }
-
   if (req.method === "POST" && path === "/api/admin/mint-key") {
     if (!requireAdmin()) return;
     const { hwid, tier, days } = await readJson(req);
-    const hwidBuf = parseHwidHex(hwid);
-    if (!hwidBuf) return send(res, 400, { error: "HWID must look like XXXX-XXXX-XXXX-XXXX." });
+    // HWID is optional now — keys aren't PC-locked. Zero-fill if nothing usable was given.
+    const hwidBuf = parseHwidHex(hwid) || Buffer.alloc(8);
     const t = String(tier || "FREE").toUpperCase();
     if (t !== "FREE" && t !== "PRO") return send(res, 400, { error: "Tier must be FREE or PRO." });
     const d = Number.isFinite(Number(days)) ? Math.max(0, Math.trunc(Number(days))) : 0;

@@ -46,14 +46,6 @@ export async function getProfile() {
   return profile;
 }
 
-export async function setHwid(hwid) {
-  await api("/api/hwid/bind", { method: "POST", body: { hwid } });
-}
-
-export async function resetHwid() {
-  await api("/api/hwid/reset", { method: "POST" });
-}
-
 export async function setLicenseKey(key) {
   await api("/api/license", { method: "POST", body: { key } });
 }
@@ -72,8 +64,8 @@ export async function regenerateClientToken() {
 }
 
 // ---- admin -----------------------------------------------------------------
-// Gated entirely server-side by ADMIN_HWID (server/server.mjs) — whichever
-// account has that hardware ID bound to it. Nothing client-side to configure.
+// Gated entirely server-side by ADMIN_EMAIL (server/server.mjs). Nothing
+// client-side to configure.
 export async function isAdmin() {
   try { return (await api("/api/admin/check")).isAdmin; } catch { return false; }
 }
@@ -92,10 +84,6 @@ export async function adminSetBlacklist(email, on) {
 
 export async function adminSetWhitelist(email, on) {
   return (await api("/api/admin/whitelist", { method: "POST", body: { email, on } })).profile;
-}
-
-export async function adminResetHwid(email) {
-  return (await api("/api/admin/reset-hwid", { method: "POST", body: { email } })).profile;
 }
 
 export async function adminMintKey(hwid, tier, days) {

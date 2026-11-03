@@ -20,8 +20,6 @@ export async function signIn(email, password) { return (await backend()).signIn(
 export async function signOut() { return (await backend()).signOut(); }
 export async function getSession() { return (await backend()).getSession(); }
 export async function getProfile() { return (await backend()).getProfile(); }
-export async function setHwid(hwid) { return (await backend()).setHwid(hwid); }
-export async function resetHwid() { return (await backend()).resetHwid(); }
 export async function setLicenseKey(key) { return (await backend()).setLicenseKey(key); }
 export async function getClientToken() { return (await backend()).getClientToken(); }
 export async function regenerateClientToken() { return (await backend()).regenerateClientToken(); }
@@ -31,7 +29,6 @@ export async function adminListUsers() { return (await backend()).adminListUsers
 export async function adminSetTier(email, tier) { return (await backend()).adminSetTier(email, tier); }
 export async function adminSetBlacklist(email, on) { return (await backend()).adminSetBlacklist(email, on); }
 export async function adminSetWhitelist(email, on) { return (await backend()).adminSetWhitelist(email, on); }
-export async function adminResetHwid(email) { return (await backend()).adminResetHwid(email); }
 export async function adminMintKey(hwid, tier, days) { return (await backend()).adminMintKey(hwid, tier, days); }
 
 export async function requireSession(loginUrl = "login.html") {

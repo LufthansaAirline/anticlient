@@ -35,7 +35,7 @@
         <!-- License key -->
         <div class="panel">
           <h3>License key</h3>
-          <p class="hint">Paste the key you were issued (starts with ANTI-).</p>
+          <p class="hint">Paste the key you were issued (starts with ANTI-). Not tied to any one PC.</p>
           <div class="value" id="keyValue">—</div>
           <div class="row">
             <input id="keyInput" type="text" placeholder="ANTI-…" autocomplete="off">
@@ -44,40 +44,13 @@
           <div class="msg" id="keyMsg"></div>
         </div>
 
-        <!-- HWID -->
-        <div class="panel">
-          <h3>Hardware ID</h3>
-          <p class="hint">The PC your license is bound to. Resetting lets you move to a new PC.</p>
-          <div class="value" id="hwidValue">—</div>
-
-          <!-- when no HWID is bound yet: this binds itself, nothing to type here -->
-          <div id="bindRow" style="display:none">
-            <p class="sub" style="margin:10px 0 0">
-              Not bound yet. A website can't read your PC's hardware ID — nothing to do here.
-              Paste your <b>Client token</b> (below) into AntiClient's Account tab and it binds
-              itself automatically the moment you sign in.
-            </p>
-            <button class="mini-btn" id="manualBindToggle" type="button" style="margin-top:10px">Bind a key's HWID manually instead</button>
-            <div class="row" id="manualBindRow" style="display:none;margin-top:8px">
-              <input id="hwidInput" type="text" placeholder="XXXX-XXXX-XXXX-XXXX" autocomplete="off">
-              <button class="btn-ghost" id="bindHwid" type="button">Bind</button>
-            </div>
-          </div>
-
-          <!-- when an HWID is bound -->
-          <div class="row" id="resetRow" style="display:none">
-            <button class="btn-ghost btn-danger" id="resetHwid" type="button">Reset HWID</button>
-          </div>
-          <div class="msg" id="hwidMsg"></div>
-        </div>
-
         <!-- Client token -->
-        <div class="panel" style="grid-column: 1 / -1">
+        <div class="panel">
           <h3>Client token</h3>
           <p class="hint">
-            Paste this into AntiClient's Account tab (same box as a license key) to sign the
-            mod in online. It auto-binds to whichever PC uses it first — reset your HWID above
-            to move it. Keep it private; anyone with it can sign in as you.
+            Paste this into AntiClient's Account tab (same box as a license key) to sign the mod
+            in online — works on any PC or launcher, all at once. Keep it private; anyone with it
+            can sign in as you.
           </p>
           <div class="value" id="tokenValue">—</div>
           <div class="row">
@@ -92,10 +65,9 @@
 
   <script type="module">
     import {
-      requireSession, getProfile, setHwid, resetHwid, setLicenseKey, signOut,
+      requireSession, getProfile, setLicenseKey, signOut,
       getClientToken, regenerateClientToken, configured, isAdmin
     } from "./js/auth.js";
-    import { HWID_RESET_COOLDOWN_DAYS } from "./js/config.js";
 
     const loading = document.getElementById("loading");
     const dash = document.getElementById("dash");
@@ -110,8 +82,6 @@
       el.textContent = text;
       el.className = "msg " + (ok ? "ok" : "err");
     }
-
-    function maskHwid(h) { return h; } // HWID isn't secret; show it in full
 
     async function init() {
       const session = await requireSession();
@@ -136,7 +106,6 @@
       } catch { /* admin tools unavailable on this backend */ }
 
       renderKey(profile.license_key);
-      renderHwid(profile.hwid);
 
       // client token (separate secret the mod presents to /api/client/verify)
       const tokenMsg = document.getElementById("tokenMsg");
@@ -183,35 +152,6 @@
           msg(keyMsg, "Saved.", true);
         } catch (e) { msg(keyMsg, e?.message || "Could not save."); }
       });
-
-      // bind hwid
-      const hwidInput = document.getElementById("hwidInput");
-      const hwidMsg = document.getElementById("hwidMsg");
-      document.getElementById("manualBindToggle").addEventListener("click", () => {
-        const row = document.getElementById("manualBindRow");
-        row.style.display = row.style.display === "none" ? "flex" : "none";
-      });
-      document.getElementById("bindHwid").addEventListener("click", async () => {
-        const v = hwidInput.value.trim().toUpperCase();
-        if (!/^[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}$/.test(v)) {
-          msg(hwidMsg, "HWID must look like XXXX-XXXX-XXXX-XXXX."); return;
-        }
-        try {
-          await setHwid(v);
-          renderHwid(v);
-          msg(hwidMsg, "HWID bound.", true);
-        } catch (e) { msg(hwidMsg, e?.message || "Could not bind."); }
-      });
-
-      // reset hwid
-      document.getElementById("resetHwid").addEventListener("click", async () => {
-        if (!confirm("Reset your HWID? You can only do this once every " + HWID_RESET_COOLDOWN_DAYS + " days.")) return;
-        try {
-          await resetHwid();
-          renderHwid(null);
-          msg(hwidMsg, "HWID reset. Bind your new PC when you're ready.", true);
-        } catch (e) { msg(hwidMsg, e?.message || "Could not reset."); }
-      });
     }
 
     function renderKey(key) {
@@ -220,23 +160,6 @@
 
     function renderToken(token) {
       document.getElementById("tokenValue").textContent = token || "—";
-    }
-
-    function renderHwid(hwid) {
-      const bindRow = document.getElementById("bindRow");
-      const resetRow = document.getElementById("resetRow");
-      const manualBindRow = document.getElementById("manualBindRow");
-      const val = document.getElementById("hwidValue");
-      if (hwid) {
-        val.textContent = maskHwid(hwid);
-        bindRow.style.display = "none";
-        resetRow.style.display = "flex";
-      } else {
-        val.textContent = "— not bound —";
-        bindRow.style.display = "block";
-        resetRow.style.display = "none";
-        manualBindRow.style.display = "none";
-      }
     }
   </script>
 </body>
