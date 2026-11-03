@@ -87,13 +87,19 @@ function signingKeyCandidates() {
 }
 
 let signingKeyCache; // undefined = not tried yet, null = tried and missing
+let signingKeyProblem = ""; // set when ANTI_SIGNING_KEY_PEM exists but won't parse
 function loadSigningKey() {
   if (signingKeyCache !== undefined) return signingKeyCache;
   if (process.env.ANTI_SIGNING_KEY_PEM) {
     try {
       signingKeyCache = createPrivateKey({ key: process.env.ANTI_SIGNING_KEY_PEM, format: "pem", type: "pkcs8" });
       return signingKeyCache;
-    } catch { /* malformed — fall through to file candidates */ }
+    } catch (e) {
+      // Set but unusable — say so explicitly rather than silently falling
+      // through to "no key found", which hides a pasting/formatting mistake.
+      signingKeyProblem = "ANTI_SIGNING_KEY_PEM is set but could not be parsed (" + e.message + "). " +
+        "Make sure you pasted the whole file, including the BEGIN/END PRIVATE KEY lines.";
+    }
   }
   for (const p of signingKeyCandidates()) {
     if (existsSync(p)) {
@@ -118,8 +124,10 @@ function parseHwidHex(text) {
 function mintOfflineKey(hwidBuf, tier, days) {
   const priv = loadSigningKey();
   if (!priv) {
+    if (signingKeyProblem) throw new Error(signingKeyProblem);
     throw new Error(
-      "No signing key found on this server. Put signing_key.pem at " + signingKeyCandidates()[1] + " (same one the game uses)."
+      "No signing key configured on this server. Set ANTI_SIGNING_KEY_PEM in the environment " +
+      "(same signing_key.pem the game uses), or place it at one of: " + signingKeyCandidates().join(", ") + "."
     );
   }
 
